@@ -1,0 +1,26 @@
+let alertIDS = SecurityIncident
+| where ProviderIncidentId  == IncidentNMB
+| project AlertIds;  
+let IP = SecurityAlert
+| where SystemAlertId in (alertIDS)
+| extend IP = extract(@"(a*Address..)([""])(\w+.\w+.\w+.\w+)", 3, tostring(Entities))
+| distinct  IP
+| project IP; 
+let userID = SecurityAlert
+| where SystemAlertId in (alertIDS)
+| extend aadUsrID = extract(@"(a*AadUserId..)([""])(\w+-\w+-\w+-\w+-\w+)", 3, tostring(Entities))
+| distinct aadUsrID
+| project aadUsrID;
+let IPlast24 = SigninLogs
+| where UserId in (userID)
+| distinct IPAddress
+| summarize counted = count() by IPAddress
+| summarize sum(counted);
+SigninLogs
+| where UserId  in (userID)
+| where IPAddress  in (IP)
+| extend errorCode = extract(@"(errorCode)(..)(\d+)",3,tostring(Status))
+| as hint.materialized=true T
+| extend totalIPS = toscalar(IPlast24)
+| project UserPrincipalName, AuthenticationRequirement, ResourceDisplayName, IsInteractive, ResultDescription, DeviceDetail, IPAddress, format_datetime(TimeGenerated, 'MM-dd-yyyy-h:m'), Status, Location, errorCode, totalIPS
+| where AuthenticationRequirement == "singleFactorAuthentication" and errorCode  == 0 and totalIPS < 4
