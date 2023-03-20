@@ -1,5 +1,5 @@
 let alertIDS = SecurityIncident
-| where ProviderIncidentId  == IncidentNMB
+| where IncidenNumber  == IncidentNMB
 | project AlertIds;  
 let IP = SecurityAlert
 | where SystemAlertId in (alertIDS)
